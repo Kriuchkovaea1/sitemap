@@ -1,18 +1,32 @@
 <?php
 
-namespace Kriuchaveta\Sitemap;
+namespace SM;
 
 use Exception;
 
+
+;
+
+/*
+ * composer
+ * readme
+ * валидация входных данных
+ * нарушенная инкапсуляция
+ *
+ *
+ *
+ * */
+
+
 class CreateSiteMap
 {
-    const SITE_URL = ''; // url сайта для парсинга
-    const XML = 'xml';
-    const CSV = 'csv';
-    const JSON = 'json';
+
+    use SiteMapValidation;
+
     protected array $all_links;
     protected string $path;
     protected string $type;
+
 
     public function __construct(array $all_links, string $path, string $type)
     {
@@ -21,30 +35,19 @@ class CreateSiteMap
         $this->type = $type;
     }
 
-    public function generateType($type): void
+    public function create($path, $filename, $sitemap): void
     {
-        try {
-            switch ($this->type) {
-                case self::XML:
-                    $this->generateXML();
-                    break;
-                case self::CSV:
-                    $this->generateCSV();
-                    break;
-                case self::JSON:
-                    $this->generateJSON();
-                    break;
-                default:
-                    echo('Формат не определен:' . $type);
-                    break;
-            }
-            echo 'Файл создан';
-        } catch (Exception $e) {
-            echo 'Выброшено исключение: ' . $e->getMessage();
+        if (!is_dir($path)) {
+            mkdir($path, 0755, true);
         }
+        file_put_contents($path . $filename, $sitemap);
     }
 
-    private function generateXML(): void
+    /**
+     * @throws \DOMException
+     * @throws Exception
+     */
+    function generateXML(): void
     {
         $dom = new \DomDocument('1.0', 'utf-8');
         $dom->formatOutput = true;
@@ -58,86 +61,62 @@ class CreateSiteMap
 
         $sxe = simplexml_import_dom($dom);
 
-        $date = (new \DateTime())->format('Y-m-d');
-
         foreach ($this->all_links as $item) {
-            $elem = trim(mb_substr($item, mb_strlen(self::SITE_URL)), '/');
-            $elem = explode("/", $elem);
-
-            $count = count($elem);
-            if ($count == 1) {
-                $priority = '1.0';
-            } elseif ($count == 2) {
-                $priority = '0.5';
-            } else {
-                $priority = '0.1';
-            }
-
-            if ($priority == '1.0') {
-                $changefreq = 'hourly';
-            } elseif ($priority == '0.5') {
-                $changefreq = 'daily';
-            } else {
-                $changefreq = 'weekly';
-            }
 
             $urlMain = $sxe->addChild('url');
-            $urlMain->addChild('loc', htmlspecialchars($item));
-            $urlMain->addChild('lastmod', $date);
-            $urlMain->addChild('priority', $priority);
-            $urlMain->addChild('changefreq', $changefreq);
-
+            $urlMain->addChild('loc', htmlspecialchars($item['loc']));
+            $urlMain->addChild('lastmod', $item['lastmod']);
+            $urlMain->addChild('priority', $item['priority']);
+            $urlMain->addChild('changefreq', $item['changefreq']);
+            $this->validate($item);
         }
         $dom->appendChild($root);
-        $this->path = preg_replace('/\/sitemap.xml\/?$/m', "", $this->path);
+        $this->path = "sitemapXML";
 
-        try {
-            if (!is_dir($this->path)) {
-                mkdir($this->path, 0777, true);
-            }
-            $dom->save($this->path . '/sitemap.xml');
-        } catch (Exception $e) {
-            echo $e->getMessage();
+        if (!is_dir($this->path)) {
+            mkdir($this->path, 0755, true);
         }
+        $dom->save($this->path . './sitemap.xml');
 
     }
 
-    function generateCSV(): void
+    /**
+     * @throws Exception
+     */
+    private function generateCSV(): void
     {
+        $csv = "";
+
         foreach ($this->all_links as $data) {
-            $csv = $csv . $data['loc'] . ';' . $data['lastmod'] . ';' . $data['priority'] . ';' . $data['changefreq'] . "\n";
+            $csv .= $data['loc'] . ';' . $data['lastmod'] . ';' . $data['priority'] . ';' . $data['changefreq'] . "\n";
+            $this->validate($data);
         }
-
-        $this->path = preg_replace('/\/sitemap.csv\/?$/m', "", $this->path);
-
-        try {
-            if (!is_dir($this->path)) {
-                mkdir($this->path, 0777, true);
-            }
-            file_put_contents($this->path . '/sitemap.csv', $csv);
-
-        } catch (Exception $e) {
-            echo $e->getMessage();
-        }
+        $this->create('sitemapCSV', './sitemap.csv', $csv);
     }
 
-    function generateJSON(): void
+    private function generateJSON(): void
     {
         $json = json_encode($this->all_links, JSON_UNESCAPED_SLASHES);
-        $this->path = preg_replace('/\/sitemap.json\/?$/m', "", $this->path);
 
-        try {
-            if (!is_dir($this->path)) {
-                mkdir($this->path, 0777, true);
-            } elseif (!is_writable($this->path)) {
-                throw new Exception('Директория недоступна для записи');
-            }
-            file_put_contents($this->path . '/sitemap.json', $json);
-
-        } catch (Exception $e) {
-            echo $e->getMessage();
-        }
+        $this->create('sitemapJSON', './sitemap.json', $json);
 
     }
+}
 
+$all_links = [['loc' => 'https://site.ru',
+    'lastmod' => '2020-12-14',
+    'priority' => 0.1,
+    'changefreq' => 'hourly'],
+    ['loc' => 'https://site.ru/about',
+        'lastmod' => '2020-12-10',
+        'priority' => 0.5,
+        'changefreq' => 'daily'],];
+
+
+$json = new CreateSiteMap($all_links, '/sitemap.csv', 'CSV');
+try {
+    $json->generateXML();
+} catch
+(Exception $ex) {
+    echo $ex->getMessage();
 }

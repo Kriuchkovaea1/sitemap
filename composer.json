@@ -1,13 +1,14 @@
 {
     "name": "kriuchaveta/sitemap",
-    "description": "Site map generation library for XML, CMS, Json",
+    "description": "Site map generation library for XML, CSV, Json",
     "type": "library",
     "license": "nginx",
     "autoload": {
         "psr-4": {
-            "Kriuchaveta\\Sitemap\\": "src/"
+            "SM": "src"
         }
     },
+
     "authors": [
         {
             "name": "Kriuchkovaea1",
@@ -17,6 +18,8 @@
     "minimum-stability": "dev",
     "require": {
         "php": ">=8.1.0",
-        "ext-json": "*"
+        "ext-json": "*",
+        "ext-dom": "*",
+        "ext-simplexml": "*"
     }
 }
