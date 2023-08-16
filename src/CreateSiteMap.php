@@ -1,41 +1,68 @@
 <?php
 
-namespace SM;
+namespace Kriuchaveta\Sitemap;
 
 use Exception;
 
-
-;
-
-/*
- * composer
- * readme
- * валидация входных данных
- * нарушенная инкапсуляция
- *
- *
- *
- * */
-
-
 class CreateSiteMap
 {
-
-    use SiteMapValidation;
 
     protected array $all_links;
     protected string $path;
     protected string $type;
 
+    protected static array $priority = [
+        0.1,
+        0.5,
+        1,
+    ];
 
-    public function __construct(array $all_links, string $path, string $type)
+    protected static array $changefreqs = [
+        'hourly',
+        'daily',
+        'weekly',];
+
+    /**
+     * @throws Exception
+     */
+    protected function validate($item): void
+    {
+
+        if (empty($item['loc'])) {
+            throw new Exception("Ошибка при обработке тега: loc");
+        }
+
+        if (empty($item['lastmod'])) {
+            throw new Exception("Ошибка при обработке тега: lastmod");
+        } else {
+            $d = \DateTime::createFromFormat("Y-m-d", $item['lastmod']);
+            if (!($d && $d->format("Y-m-d") === $item['lastmod'])) {
+                throw new Exception("Невалидный формат Даты последнего изменения файла. Допустимый формат Y-m-d. Указано: lastmod");
+            }
+        }
+
+        if (empty($item['priority'])) {
+            throw new Exception("Ошибка при обработке тега: priority.");
+        } elseif (!in_array($item['priority'], self::$priority)) {
+            throw new Exception("Невалидная Приоритетность. Допустимые значения — 0.1, 0.5 1.");
+
+        }
+
+        if (empty($item['changefreq'])) {
+            throw new Exception("Ошибка при обработке тега: changefreq.");
+        } elseif (!in_array($item['changefreq'], self::$changefreqs)) {
+            throw new Exception("Невалидная Вероятная частота изменения. Допустимые значения");
+        }
+    }
+
+    protected function __construct(array $all_links, string $path, string $type)
     {
         $this->all_links = $all_links;
         $this->path = $path;
         $this->type = $type;
     }
 
-    public function create($path, $filename, $sitemap): void
+    protected function create($path, $filename, $sitemap): void
     {
         if (!is_dir($path)) {
             mkdir($path, 0755, true);
@@ -47,7 +74,7 @@ class CreateSiteMap
      * @throws \DOMException
      * @throws Exception
      */
-    function generateXML(): void
+    protected function generateXML(): void
     {
         $dom = new \DomDocument('1.0', 'utf-8');
         $dom->formatOutput = true;
@@ -83,7 +110,7 @@ class CreateSiteMap
     /**
      * @throws Exception
      */
-    private function generateCSV(): void
+    protected function generateCSV(): void
     {
         $csv = "";
 
@@ -94,29 +121,11 @@ class CreateSiteMap
         $this->create('sitemapCSV', './sitemap.csv', $csv);
     }
 
-    private function generateJSON(): void
+    protected function generateJSON(): void
     {
         $json = json_encode($this->all_links, JSON_UNESCAPED_SLASHES);
 
         $this->create('sitemapJSON', './sitemap.json', $json);
 
     }
-}
-
-$all_links = [['loc' => 'https://site.ru',
-    'lastmod' => '2020-12-14',
-    'priority' => 0.1,
-    'changefreq' => 'hourly'],
-    ['loc' => 'https://site.ru/about',
-        'lastmod' => '2020-12-10',
-        'priority' => 0.5,
-        'changefreq' => 'daily'],];
-
-
-$json = new CreateSiteMap($all_links, '/sitemap.csv', 'CSV');
-try {
-    $json->generateXML();
-} catch
-(Exception $ex) {
-    echo $ex->getMessage();
 }
